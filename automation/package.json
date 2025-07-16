@@ -1,0 +1,17 @@
+{
+  "name": "web-automation-runner",
+  "version": "1.0.0",
+  "description": "Real web automation testing with Playwright",
+  "main": "test-runner.js",
+  "scripts": {
+    "test": "node test-runner.js",
+    "install-browsers": "npx playwright install"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0",
+    "@playwright/test": "^1.40.0"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}
