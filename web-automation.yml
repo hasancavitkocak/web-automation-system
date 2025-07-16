@@ -1,0 +1,100 @@
+name: Web Automation Testing
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Test URL'
+        required: true
+        type: string
+      username:
+        description: 'Login Username (optional)'
+        required: false
+        type: string
+      password:
+        description: 'Login Password (optional)'
+        required: false
+        type: string
+      tests:
+        description: 'Tests to run (comma separated: performance,security,forms,links,seo,accessibility)'
+        required: false
+        default: 'performance,security,forms,links,seo,accessibility'
+        type: string
+
+jobs:
+  web-automation:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        npm install
+        npm install puppeteer playwright @playwright/test
+        
+    - name: Install browser dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libnss3-dev \
+          libatk-bridge2.0-dev \
+          libdrm-dev \
+          libxcomposite-dev \
+          libxdamage-dev \
+          libxrandr-dev \
+          libgbm-dev \
+          libxss-dev \
+          libasound2-dev
+          
+    - name: Install Playwright browsers
+      run: npx playwright install chromium
+      
+    - name: Run Web Automation Tests
+      env:
+        TEST_URL: ${{ github.event.inputs.url }}
+        TEST_USERNAME: ${{ github.event.inputs.username }}
+        TEST_PASSWORD: ${{ github.event.inputs.password }}
+        TEST_TYPES: ${{ github.event.inputs.tests }}
+      run: node automation/test-runner.js
+      
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ github.run_number }}
+        path: results/
+        
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = './results/test-report.json';
+          if (fs.existsSync(path)) {
+            const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+            const comment = `## 🤖 Web Automation Test Results
+            
+            **URL:** ${report.url}
+            **Overall Score:** ${report.overallScore}%
+            **Tests Run:** ${report.results.length}
+            
+            ### Results:
+            ${report.results.map(r => `- **${r.testName}**: ${r.status} (${r.score}%)`).join('\n')}
+            
+            [View detailed report](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          }
