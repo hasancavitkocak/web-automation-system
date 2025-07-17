@@ -36,8 +36,8 @@ async function runTests() {
     'Upgrade-Insecure-Requests': '1'
   });
   
-  // Remove automation indicators
-  await page.evaluateOnNewDocument(() => {
+  // Remove automation indicators (Playwright compatible)
+  await page.addInitScript(() => {
     Object.defineProperty(navigator, 'webdriver', {
       get: () => undefined,
     });
