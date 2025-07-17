@@ -46,27 +46,50 @@ async function runTests() {
   const results = [];
   
   try {
-    // Navigate to page with multiple strategies
+    // Navigate to page with comprehensive wait strategies
     console.log('📄 Loading page...');
     
     let pageLoaded = false;
     const strategies = [
-      { waitUntil: 'domcontentloaded', timeout: 45000 },
-      { waitUntil: 'load', timeout: 60000 },
-      { waitUntil: 'networkidle', timeout: 30000 }
+      { waitUntil: 'domcontentloaded', timeout: 60000 },
+      { waitUntil: 'load', timeout: 90000 },
+      { waitUntil: 'networkidle', timeout: 45000 }
     ];
     
     for (const strategy of strategies) {
       try {
         console.log(`🔄 Trying strategy: ${strategy.waitUntil} (${strategy.timeout}ms)`);
         await page.goto(url, strategy);
+        
+        // Additional wait for dynamic content
+        console.log('⏳ Waiting for dynamic content...');
+        await page.waitForTimeout(5000);
+        
+        // Wait for basic page elements
+        try {
+          await page.waitForSelector('body', { timeout: 10000 });
+          console.log('✅ Body element found');
+        } catch (e) {
+          console.log('⚠️ Body element not found, continuing...');
+        }
+        
         pageLoaded = true;
         console.log(`✅ Page loaded with strategy: ${strategy.waitUntil}`);
         break;
       } catch (error) {
         console.log(`⚠️ Strategy ${strategy.waitUntil} failed: ${error.message}`);
         if (strategy === strategies[strategies.length - 1]) {
-          throw error;
+          // Last resort: try basic navigation
+          console.log('🔄 Last resort: Basic navigation...');
+          try {
+            await page.goto(url, { timeout: 120000 });
+            await page.waitForTimeout(10000);
+            pageLoaded = true;
+            console.log('✅ Basic navigation successful');
+            break;
+          } catch (finalError) {
+            throw finalError;
+          }
         }
       }
     }
@@ -75,16 +98,34 @@ async function runTests() {
       throw new Error('All loading strategies failed');
     }
     
-    // Wait a bit more for dynamic content
-    await page.waitForTimeout(3000);
+    // Extended wait for heavy sites
+    console.log('⏳ Extended wait for heavy sites...');
+    await page.waitForTimeout(8000);
+    
+    // Check if page is actually loaded
+    const pageTitle = await page.title();
+    console.log(`📄 Page title: "${pageTitle}"`);
+    
+    // Wait for any loading indicators to disappear
+    try {
+      await page.waitForSelector('.loading, .spinner, [class*="loading"]', { 
+        state: 'hidden', 
+        timeout: 15000 
+      });
+      console.log('✅ Loading indicators disappeared');
+    } catch (e) {
+      console.log('⚠️ No loading indicators found or timeout');
+    }
+    
     console.log('✅ Page loaded successfully');
     
     // Login if credentials provided
     if (username && password) {
       console.log('🔐 Attempting login...');
       try {
-        // Wait for login form to be ready
-        await page.waitForTimeout(2000);
+        // Extended wait for login form
+        console.log('⏳ Waiting for login form...');
+        await page.waitForTimeout(5000);
         
         // Try multiple login selectors
         const usernameSelectors = [
@@ -108,61 +149,86 @@ async function runTests() {
         let passwordField = null;
         
         // Find username field
+        console.log('🔍 Looking for username field...');
         for (const selector of usernameSelectors) {
           try {
-            await page.waitForSelector(selector, { timeout: 5000 });
+            await page.waitForSelector(selector, { timeout: 10000 });
             usernameField = selector;
+            console.log(`✅ Username field found: ${selector}`);
             break;
           } catch (e) {
+            console.log(`⚠️ Username selector failed: ${selector}`);
             continue;
           }
         }
         
         // Find password field
+        console.log('🔍 Looking for password field...');
         for (const selector of passwordSelectors) {
           try {
-            await page.waitForSelector(selector, { timeout: 5000 });
+            await page.waitForSelector(selector, { timeout: 10000 });
             passwordField = selector;
+            console.log(`✅ Password field found: ${selector}`);
             break;
           } catch (e) {
+            console.log(`⚠️ Password selector failed: ${selector}`);
             continue;
           }
         }
         
         if (usernameField && passwordField) {
+          console.log('📝 Filling login form...');
           await page.fill(usernameField, username);
+          await page.waitForTimeout(1000);
           await page.fill(passwordField, password);
+          await page.waitForTimeout(1000);
           
           // Try to submit
+          console.log('🔍 Looking for submit button...');
           const submitSelectors = [
             'button[type="submit"]',
             'input[type="submit"]',
             'button:has-text("Giriş")',
             'button:has-text("Login")',
             '.login-button',
-            '.btn-login'
+            '.btn-login',
+            'button:has-text("Sign in")',
+            '[role="button"]:has-text("Login")'
           ];
           
           let submitted = false;
           for (const selector of submitSelectors) {
             try {
+              await page.waitForSelector(selector, { timeout: 5000 });
               await page.click(selector);
               submitted = true;
+              console.log(`✅ Submit button clicked: ${selector}`);
               break;
             } catch (e) {
+              console.log(`⚠️ Submit selector failed: ${selector}`);
               continue;
             }
           }
           
           if (!submitted) {
             // Try pressing Enter on password field
+            console.log('⌨️ Trying Enter key on password field...');
             await page.press(passwordField, 'Enter');
           }
           
-          await page.waitForTimeout(5000);
+          // Wait for login to process
+          console.log('⏳ Waiting for login to process...');
+          await page.waitForTimeout(8000);
+          
+          // Check if login was successful
+          const currentUrl = page.url();
+          console.log(`🌐 Current URL after login: ${currentUrl}`);
+          
           console.log('✅ Login attempted');
         } else {
-          console.log('⚠️ Login form not found');
+          console.log('⚠️ Login form not found - available fields:');
+          const allInputs = await page.locator('input').count();
+          console.log(`   Total inputs found: ${allInputs}`);
         }
       } catch (loginError) {
         console.log('⚠️ Login failed or not needed:', loginError.message);
