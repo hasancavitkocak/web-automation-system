@@ -1,14 +1,16 @@
-# Playwright resmi imajı (Chromium, WebKit ve Firefox hazır geliyor)
+# Playwright’ın Chromium, Firefox ve WebKit yüklü resmi imajını kullanıyoruz
 FROM mcr.microsoft.com/playwright:v1.40.0-jammy
 
-# Çalışma klasörü
+# Çalışma dizini
 WORKDIR /app
 
-# Paketleri kopyala ve kur
-COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
+# Sadece package.json'ı kopyala (yarn.lock olmadığı için tek dosya)
+COPY package.json ./
 
-# Tüm kodları kopyala
+# Bağımlılıkları kur (yarn.lock yoksa otomatik kurulum yapacak)
+RUN yarn install
+
+# Tüm proje dosyalarını kopyala
 COPY . .
 
 # Sunucuyu başlat
