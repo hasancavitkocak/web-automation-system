@@ -29,6 +29,28 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// Chromium başlatan yardımcı fonksiyon
+async function launchChromium() {
+  let launchOptions = {
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  };
+
+  try {
+    const exePath = chromium.executablePath();
+    if (exePath) {
+      console.log(`✅ Chromium path bulundu: ${exePath}`);
+      launchOptions.executablePath = exePath;
+    } else {
+      console.warn(`⚠ Chromium executablePath() boş döndü, fallback kullanılıyor.`);
+    }
+  } catch (err) {
+    console.warn(`⚠ chromium.executablePath() alınamadı, fallback denenecek:`, err.message);
+  }
+
+  return await chromium.launch(launchOptions);
+}
+
 // Test çalıştırma endpoint'i
 app.post('/run-test', async (req, res) => {
   const { url, scenario } = req.body;
@@ -50,12 +72,7 @@ app.post('/run-test', async (req, res) => {
   try {
     logs.push(`Tarayıcı başlatılıyor...`);
 
-    browser = await chromium.launch({
-      headless: true,
-      executablePath: chromium.executablePath(), // Playwright’ın kendi indirdiği Chromium
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-
+    browser = await launchChromium();
     logs.push(`Tarayıcı başlatıldı`);
 
     page = await browser.newPage();
